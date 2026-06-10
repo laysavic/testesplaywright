@@ -32,9 +32,16 @@ test('SAD - Cadastro de Áreas', async ({ page }) => {
         name: /Verificar código/i
     }).click();
 
+    await page.waitForURL(/dashboard/);
+
     // =====================================================
     // ACESSAR ÁREAS
     // =====================================================
+
+    await page.getByRole('button', {
+        name: 'Disciplinas'
+    }).click();
+    await page.waitForTimeout(500);
 
     await page.getByRole('link', {
         name: 'Áreas'
