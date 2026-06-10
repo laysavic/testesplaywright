@@ -1,14 +1,13 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
-test('SAD - Cadastro de Conteúdos', async ({ page }) => {
+test.describe.configure({
+    mode: 'serial'
+});
 
-    // =====================================================
-    // LOGIN
-    // =====================================================
+async function fazerLogin(page) {
 
     const secret = '2DINPFKXGBLME2VO';
-    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
 
@@ -24,6 +23,12 @@ test('SAD - Cadastro de Conteúdos', async ({ page }) => {
         name: 'Entrar'
     }).click();
 
+    await page.waitForURL(/2fa/, {
+        timeout: 15000
+    });
+
+    const otp = authenticator.generate(secret);
+
     await page.getByRole('textbox', {
         name: /Código de verificação/i
     }).fill(otp);
@@ -32,17 +37,30 @@ test('SAD - Cadastro de Conteúdos', async ({ page }) => {
         name: /Verificar código/i
     }).click();
 
-    // =====================================================
-    // ACESSAR CONTEÚDOS
-    // =====================================================
+    await expect(page).toHaveURL(/dashboard/, {
+        timeout: 20000
+    });
+}
+
+async function abrirConteudos(page) {
+
+    await page.getByRole('button', {
+        name: 'Disciplinas'
+    }).click();
 
     await page.getByRole('link', {
         name: 'Conteúdos'
     }).click();
+}
 
-    // =====================================================
-    // SAD 1 - Salvar sem preencher nada
-    // =====================================================
+// =====================================================
+// SAD 01
+// =====================================================
+
+test('SAD - Salvar conteúdo sem preencher nada', async ({ page }) => {
+
+    await fazerLogin(page);
+    await abrirConteudos(page);
 
     await page.getByRole('button', {
         name: 'Adicionar Conteúdo'
@@ -52,13 +70,19 @@ test('SAD - Cadastro de Conteúdos', async ({ page }) => {
         name: 'Salvar'
     }).click();
 
-    await page.getByRole('button', {
-        name: 'Close'
-    }).click();
+    await expect(
+        page.getByText('Este campo é obrigatório')
+    ).toHaveCount(2);
+});
 
-    // =====================================================
-    // SAD 2 - Informar apenas o nome
-    // =====================================================
+// =====================================================
+// SAD 02
+// =====================================================
+
+test('SAD - Informar apenas nome', async ({ page }) => {
+
+    await fazerLogin(page);
+    await abrirConteudos(page);
 
     await page.getByRole('button', {
         name: 'Adicionar Conteúdo'
@@ -72,13 +96,23 @@ test('SAD - Cadastro de Conteúdos', async ({ page }) => {
         name: 'Salvar'
     }).click();
 
-    // =====================================================
-    // SAD 3 - Informar apenas disciplina
-    // =====================================================
+    await expect(
+        page.getByText('Este campo é obrigatório')
+    ).toHaveCount(1);
+});
 
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('');
+// =====================================================
+// SAD 03
+// =====================================================
+
+test('SAD - Informar apenas disciplina', async ({ page }) => {
+
+    await fazerLogin(page);
+    await abrirConteudos(page);
+
+    await page.getByRole('button', {
+        name: 'Adicionar Conteúdo'
+    }).click();
 
     await page.getByRole('button', {
         name: 'Disciplina'
@@ -92,29 +126,19 @@ test('SAD - Cadastro de Conteúdos', async ({ page }) => {
         name: 'Salvar'
     }).click();
 
-    // =====================================================
-    // SAD 4 - Nome apenas com espaços
-    // =====================================================
+    await expect(
+        page.getByText('Este campo é obrigatório')
+    ).toHaveCount(1);
+});
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+// =====================================================
+// SAD 04
+// =====================================================
 
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('                                ');
+test('SAD - Nome somente com espaços', async ({ page }) => {
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    await page.getByRole('button', {
-        name: 'Close'
-    }).click();
-
-    // =====================================================
-    // SAD 5 - Criar conteúdo para testar edição inválida
-    // =====================================================
+    await fazerLogin(page);
+    await abrirConteudos(page);
 
     await page.getByRole('button', {
         name: 'Adicionar Conteúdo'
@@ -122,7 +146,39 @@ test('SAD - Cadastro de Conteúdos', async ({ page }) => {
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
-    }).fill('exe');
+    }).fill('          ');
+
+    await page.getByRole('button', {
+        name: 'Disciplina'
+    }).click();
+
+    await page.getByRole('option', {
+        name: 'Espanhol'
+    }).click();
+
+    await page.getByRole('button', {
+        name: 'Salvar'
+    }).click();
+});
+
+// =====================================================
+// SAD 05
+// =====================================================
+
+test('SAD - Editar removendo o nome', async ({ page }) => {
+
+    await fazerLogin(page);
+    await abrirConteudos(page);
+
+    const nomeTeste = `exe-${Date.now()}`;
+
+    await page.getByRole('button', {
+        name: 'Adicionar Conteúdo'
+    }).click();
+
+    await page.getByRole('textbox', {
+        name: 'Nome do conteúdo: *'
+    }).fill(nomeTeste);
 
     await page.getByRole('button', {
         name: 'Disciplina'
@@ -136,17 +192,13 @@ test('SAD - Cadastro de Conteúdos', async ({ page }) => {
         name: 'Salvar'
     }).click();
 
-    // =====================================================
-    // SAD 6 - Editar removendo o nome
-    // =====================================================
-
     await page.getByRole('textbox', {
         name: 'Pesquisar conteúdo...'
-    }).fill('exe');
+    }).fill(nomeTeste);
 
     await page.getByRole('button', {
         name: 'Editar'
-    }).nth(0).click();
+    }).first().click();
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
@@ -155,20 +207,20 @@ test('SAD - Cadastro de Conteúdos', async ({ page }) => {
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
+});
 
-    await page.getByRole('button', {
-        name: 'Close'
-    }).click();
+// =====================================================
+// SAD 06
+// =====================================================
 
-    // =====================================================
-    // SAD 7 - Pesquisar conteúdo inexistente
-    // =====================================================
+test('SAD - Pesquisar conteúdo inexistente', async ({ page }) => {
 
-    await page.getByRole('textbox', {
-        name: 'Pesquisar conteúdo...'
-    }).fill('exeeeee');
+    await fazerLogin(page);
+    await abrirConteudos(page);
 
     await page.getByRole('textbox', {
         name: 'Pesquisar conteúdo...'
-    }).press('Enter');
+    }).fill('exeeeee123456789');
+
+    await page.keyboard.press('Enter');
 });

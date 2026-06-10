@@ -1,99 +1,102 @@
 import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
+// =====================================================
+// LOGIN
+// =====================================================
+
 async function login(page) {
 
     const secret = '2DINPFKXGBLME2VO';
-    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
 
-    await page.getByRole('textbox', {
-        name: 'Email'
-    }).fill('e2e-super-teacher-23@example.com');
+    await page.getByRole('textbox', { name: 'Email' })
+        .fill('e2e-super-teacher-23@example.com');
 
-    await page.getByRole('textbox', {
-        name: 'Senha'
-    }).fill('password');
+    await page.getByRole('textbox', { name: 'Senha' })
+        .fill('password');
 
-    await page.getByRole('button', {
-        name: 'Entrar'
-    }).click();
+    await page.getByRole('button', { name: 'Entrar' }).click();
 
-    await page.getByRole('textbox', {
+    const otpInput = page.getByRole('textbox', {
         name: /Código de verificação/i
-    }).fill(otp);
+    });
+
+    await otpInput.waitFor({ state: 'visible' });
+
+    const otp = authenticator.generate(secret);
+
+    await otpInput.fill(otp);
 
     await page.getByRole('button', {
         name: /Verificar código/i
     }).click();
 
-    // Espera o dashboard carregar
     await page.waitForURL(/dashboard/);
-
-    // Espera o menu aparecer
-    await expect(
-        page.getByRole('link', { name: 'Cursos' })
-    ).toBeVisible();
-
-    await page.getByRole('link', {
-        name: 'Cursos'
-    }).click();
+    await page.waitForTimeout(2000);
 }
 
-test('SAD - Cadastro de Cursos', async ({ page }) => {
+// =====================================================
+// TESTE SAD
+// =====================================================
 
-    // =====================================================
-    // LOGIN
-    // =====================================================
+test('SAD - Cadastro de Cursos', async ({ page }) => {
 
     await login(page);
 
     // =====================================================
-    // SAD 1 - Salvar sem preencher nenhum campo
+    // ACESSAR CURSOS (UMA VEZ SÓ)
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar Curso'
-    }).click();
+    const turmasBtn = page.getByRole('button', { name: /turmas/i });
+    await turmasBtn.waitFor({ state: 'visible' });
+    await turmasBtn.click();
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+    const cursosLink = page.getByText(/cursos/i);
+    await cursosLink.waitFor({ state: 'visible' });
+    await cursosLink.click();
 
-    // =====================================================
-    // SAD 2 - Selecionar apenas nível
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Nível de Escolaridade'
-    }).click();
-
-    await page.getByRole('option', {
-        name: 'Técnico'
-    }).click();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+    // garante tela carregada
+    const addCursoBtn = page.getByRole('button', { name: /Adicionar Curso/i });
+    await expect(addCursoBtn).toBeVisible({ timeout: 15000 });
 
     // =====================================================
-    // SAD 3 - Abrir e fechar seleção de nível
+    // SAD 1 - salvar vazio
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Nível de Escolaridade'
-    }).click();
+    await addCursoBtn.click();
+    await page.getByRole('button', { name: 'Salvar' }).click();
 
     // =====================================================
-    // SAD 4 - Informar apenas nome
+    // SAD 2 - só nível
     // =====================================================
+
+    await page.getByRole('button', { name: 'Nível de Escolaridade' }).click();
+    await page.getByRole('option', { name: 'Técnico' }).click();
+
+    await page.getByRole('button', { name: 'Salvar' }).click();
+
+    // =====================================================
+    // SAD 3 - abrir dropdown sem salvar
+    // =====================================================
+
+
+    await page.getByRole('button', { name: 'Nível de Escolaridade' }).click();
+
+    const cancelar = page.getByRole('button', { name: /cancelar/i });
+    if (await cancelar.count() > 0) {
+        await cancelar.click();
+    }
+
+    // =====================================================
+    // SAD 4 - só nome
+    // =====================================================
+
 
     await page.getByRole('textbox', {
         name: 'Nome do Curso: *'
     }).fill('curso_teste_sad');
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+    await page.getByRole('button', { name: 'Salvar' }).click();
 });
