@@ -8,7 +8,6 @@ test('HAPPY - CRUD de Áreas', async ({ page }) => {
     // =====================================================
 
     const secret = '2DINPFKXGBLME2VO';
-    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
 
@@ -24,6 +23,12 @@ test('HAPPY - CRUD de Áreas', async ({ page }) => {
         name: 'Entrar'
     }).click();
 
+    await page.waitForURL(/2fa/, {
+        timeout: 15000
+    });
+
+    const otp = authenticator.generate(secret);
+
     await page.getByRole('textbox', {
         name: /Código de verificação/i
     }).fill(otp);
@@ -32,39 +37,62 @@ test('HAPPY - CRUD de Áreas', async ({ page }) => {
         name: /Verificar código/i
     }).click();
 
+    await page.waitForTimeout(3000);
+
     // =====================================================
     // ACESSAR ÁREAS
     // =====================================================
 
+    await page.locator('button').filter({
+        hasText: 'Disciplinas'
+    }).first().click();
+
+    await page.waitForTimeout(1000);
+
     await page.getByRole('link', {
         name: 'Áreas'
     }).click();
+
+    await page.waitForTimeout(2000);
+
+    // =====================================================
+    // DADOS
+    // =====================================================
+
+    const nomeArea = `cursinho-${Date.now()}`;
+    const nomeEditado = `cursinho-ENEM-${Date.now()}`;
 
     // =====================================================
     // CREATE
     // =====================================================
 
     await page.getByRole('button', {
-        name: 'Adicionar área'
+        name: /Adicionar área/i
     }).click();
 
     await page.getByRole('textbox', {
-        name: 'Nome da Área:'
-    }).fill('cursinho');
+        name: /Nome da Área/i
+    }).fill(nomeArea);
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
+    await page.waitForTimeout(1500);
+
     // =====================================================
-    // READ (PESQUISAR)
+    // READ
     // =====================================================
 
     await page.getByRole('textbox', {
-        name: 'Pesquisar área...'
-    }).fill('cursinho');
+        name: /Pesquisar área/i
+    }).fill(nomeArea);
 
-    await expect(page.getByText('cursinho')).toBeVisible();
+    await expect(
+        page.getByText(nomeArea, {
+            exact: true
+        })
+    ).toBeVisible();
 
     // =====================================================
     // UPDATE
@@ -72,29 +100,39 @@ test('HAPPY - CRUD de Áreas', async ({ page }) => {
 
     await page.getByRole('button', {
         name: 'Editar'
-    }).last().click();
+    }).first().click();
 
     await page.getByRole('textbox', {
-        name: 'Nome da Área:'
-    }).fill('cursinho ENEM');
+        name: /Nome da Área/i
+    }).fill(nomeEditado);
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
+    await page.waitForTimeout(1500);
+
+    await page.getByRole('textbox', {
+        name: /Pesquisar área/i
+    }).fill(nomeEditado);
+
+    await expect(
+        page.getByText(nomeEditado, {
+            exact: true
+        })
+    ).toBeVisible();
+
     // =====================================================
     // DELETE
     // =====================================================
 
-    await page.getByRole('textbox', {
-        name: 'Pesquisar área...'
-    }).fill('cursinho ENEM');
-
     await page.getByRole('button', {
         name: 'Excluir'
+    }).first().click();
+
+    await page.getByRole('button', {
+        name: /^Excluir$/
     }).last().click();
 
-    await page.getByRole('button', {
-        name: 'Excluir'
-    }).click();
+    await page.waitForTimeout(1500);
 });
