@@ -1,7 +1,7 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
-test('HAPPY - CRUD de Conteúdos', async ({ page }) => {
+test('CRUD de Conteúdos', async ({ page }) => {
 
     // =====================================================
     // LOGIN
@@ -32,9 +32,18 @@ test('HAPPY - CRUD de Conteúdos', async ({ page }) => {
         name: /Verificar código/i
     }).click();
 
+    await expect(page).toHaveURL(/dashboard/);
+
+    const nomeConteudo = `Conteudo-${Date.now()}`;
+    const nomeEditado = `ConteudoEditado-${Date.now()}`;
+
     // =====================================================
     // ACESSAR CONTEÚDOS
     // =====================================================
+
+    await page.getByRole('button', {
+        name: 'Disciplinas'
+    }).click();
 
     await page.getByRole('link', {
         name: 'Conteúdos'
@@ -50,14 +59,15 @@ test('HAPPY - CRUD de Conteúdos', async ({ page }) => {
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
-    }).fill('prismas');
+    }).fill(nomeConteudo);
 
     await page.getByRole('button', {
         name: 'Disciplina'
     }).click();
 
-    await page.getByPlaceholder('Pesquisar disciplina...')
-        .fill('m');
+    await page.getByPlaceholder(
+        'Pesquisar disciplina...'
+    ).fill('Mat');
 
     await page.getByRole('option', {
         name: 'Matemática'
@@ -68,40 +78,54 @@ test('HAPPY - CRUD de Conteúdos', async ({ page }) => {
     }).click();
 
     // =====================================================
-    // READ (PESQUISAR)
+    // READ
     // =====================================================
 
     await page.getByRole('textbox', {
         name: 'Pesquisar conteúdo...'
-    }).fill('pri');
+    }).fill(nomeConteudo);
+
+    await expect(
+        page.getByText(nomeConteudo)
+    ).toBeVisible();
 
     // =====================================================
     // UPDATE
     // =====================================================
 
     await page.getByRole('button', {
-        name: 'Editar',
-        exact: true
-    }).click();
+        name: 'Editar'
+    }).first().click();
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
-    }).fill('prismass');
+    }).fill(nomeEditado);
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
     // =====================================================
+    // READ APÓS UPDATE
+    // =====================================================
+
+    await page.getByRole('textbox', {
+        name: 'Pesquisar conteúdo...'
+    }).fill(nomeEditado);
+
+    await expect(
+        page.getByText(nomeEditado)
+    ).toBeVisible();
+
+    // =====================================================
     // DELETE
     // =====================================================
 
     await page.getByRole('button', {
-        name: 'Excluir',
-        exact: true
-    }).click();
+        name: 'Excluir'
+    }).first().click();
 
     await page.getByRole('button', {
-        name: 'Excluir'
-    }).click();
+        name: /^Excluir$/
+    }).last().click();
 });
