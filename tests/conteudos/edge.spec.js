@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import { authenticator } from 'otplib';
 
 test('EDGE - Conteúdos', async ({ page }) => {
@@ -32,16 +32,46 @@ test('EDGE - Conteúdos', async ({ page }) => {
         name: /Verificar código/i
     }).click();
 
+    // Aguarda carregar o dashboard
+    await page.waitForURL(/dashboard/);
+
     // =====================================================
     // ACESSAR CONTEÚDOS
     // =====================================================
+
+    await page.getByRole('button', {
+        name: 'Disciplinas'
+    }).click();
 
     await page.getByRole('link', {
         name: 'Conteúdos'
     }).click();
 
+    // Aguarda a tela carregar
+    await page.getByRole('button', {
+        name: 'Adicionar Conteúdo'
+    }).waitFor();
+
     // =====================================================
-    // EDGE 1 - Nome com apenas 1 caractere
+    // Helper para selecionar disciplina
+    // =====================================================
+
+    async function selecionarDisciplina() {
+
+        await page.locator('#content-disciplina').click();
+
+        await page.getByPlaceholder(
+            'Pesquisar disciplina...'
+        ).fill('mat');
+
+        await page.getByText(
+            'Matemática',
+            { exact: true }
+        ).click();
+    }
+
+    // =====================================================
+    // EDGE 01
     // =====================================================
 
     await page.getByRole('button', {
@@ -52,18 +82,17 @@ test('EDGE - Conteúdos', async ({ page }) => {
         name: 'Nome do conteúdo: *'
     }).fill('a');
 
-    await page.getByRole('button', {
-        name: 'Disciplina'
-    }).click();
-
-    await page.getByText('História').click();
+    await selecionarDisciplina();
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
+    await page.waitForTimeout(1000);
+    await page.keyboard.press('Escape');
+
     // =====================================================
-    // EDGE 2 - Nome muito grande
+    // EDGE 02
     // =====================================================
 
     await page.getByRole('button', {
@@ -72,22 +101,21 @@ test('EDGE - Conteúdos', async ({ page }) => {
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
-    }).fill('hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh');
+    }).fill('A'.repeat(250));
 
-    await page.getByRole('button', {
-        name: 'Disciplina'
-    }).click();
+    await selecionarDisciplina();
 
-    await page.getByRole('option', {
-        name: 'Educação Física'
-    }).click();
-
+    await page.pause();
+    
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
+    await page.waitForTimeout(1000);
+    await page.keyboard.press('Escape');
+
     // =====================================================
-    // EDGE 3 - Nome com números
+    // EDGE 03
     // =====================================================
 
     await page.getByRole('button', {
@@ -96,22 +124,19 @@ test('EDGE - Conteúdos', async ({ page }) => {
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
-    }).fill('msaree55778');
+    }).fill('conteudo123456');
 
-    await page.getByRole('button', {
-        name: 'Disciplina'
-    }).click();
-
-    await page.getByRole('option', {
-        name: 'Espanhol'
-    }).click();
+    await selecionarDisciplina();
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
+    await page.waitForTimeout(1000);
+    await page.keyboard.press('Escape');
+
     // =====================================================
-    // EDGE 4 - Nome com muitos espaços internos
+    // EDGE 04
     // =====================================================
 
     await page.getByRole('button', {
@@ -120,22 +145,19 @@ test('EDGE - Conteúdos', async ({ page }) => {
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
-    }).fill('gffhnvgcx           fghg');
+    }).fill('conteudo      com      espacos');
 
-    await page.getByRole('button', {
-        name: 'Disciplina'
-    }).click();
-
-    await page.getByRole('option', {
-        name: 'Geografia'
-    }).click();
+    await selecionarDisciplina();
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
+    await page.waitForTimeout(1000);
+    await page.keyboard.press('Escape');
+
     // =====================================================
-    // EDGE 5 - Nome totalmente em maiúsculo
+    // EDGE 05
     // =====================================================
 
     await page.getByRole('button', {
@@ -144,22 +166,19 @@ test('EDGE - Conteúdos', async ({ page }) => {
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
-    }).fill('SDBVGF');
+    }).fill('CONTEUDO TESTE');
 
-    await page.getByRole('button', {
-        name: 'Disciplina'
-    }).click();
-
-    await page.getByRole('option', {
-        name: 'Educação Física'
-    }).click();
+    await selecionarDisciplina();
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
+    await page.waitForTimeout(1000);
+    await page.keyboard.press('Escape');
+
     // =====================================================
-    // EDGE 6 - Nome sem acento / disciplina com acento
+    // EDGE 06
     // =====================================================
 
     await page.getByRole('button', {
@@ -168,70 +187,47 @@ test('EDGE - Conteúdos', async ({ page }) => {
 
     await page.getByRole('textbox', {
         name: 'Nome do conteúdo: *'
-    }).fill('fisica');
+    }).fill('@#!$%¨&*');
 
-    await page.getByRole('button', {
-        name: 'Disciplina'
-    }).click();
-
-    await page.getByRole('option', {
-        name: 'Física',
-        exact: true
-    }).click();
+    await selecionarDisciplina();
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
-    // =====================================================
-    // EDGE 7 - Nome com caracteres especiais
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Adicionar Conteúdo'
-    }).click();
-
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('@@!!!');
-
-    await page.getByRole('button', {
-        name: 'Disciplina'
-    }).click();
-
-    await page.getByRole('option', {
-        name: 'Sociologia'
-    }).click();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+    await page.waitForTimeout(1000);
+    await page.keyboard.press('Escape');
 
     // =====================================================
-    // EDGE 8 - Pesquisa parcial
+    // EDGE 07
     // =====================================================
 
     await page.getByRole('textbox', {
         name: 'Pesquisar conteúdo...'
-    }).fill('ev');
+    }).fill('pri');
+
+    // =====================================================
+    // EDGE 08
+    // =====================================================
 
     await page.getByRole('textbox', {
         name: 'Pesquisar conteúdo...'
-    }).press('Enter');
-
-    // =====================================================
-    // EDGE 9 - Pesquisa com acento
-    // =====================================================
+    }).fill('');
 
     await page.getByRole('textbox', {
         name: 'Pesquisar conteúdo...'
     }).fill('evoluç');
 
     // =====================================================
-    // EDGE 10 - Pesquisa em maiúsculo
+    // EDGE 09
     // =====================================================
 
     await page.getByRole('textbox', {
         name: 'Pesquisar conteúdo...'
+    }).fill('');
+
+    await page.getByRole('textbox', {
+        name: 'Pesquisar conteúdo...'
     }).fill('EVOLUÇÃO');
+
 });

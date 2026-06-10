@@ -26,6 +26,12 @@ test('EDGE - Casos extremos do CRUD de disciplinas', async ({ page }) => {
         name: /Verificar código/i
     }).click();
 
+
+     // ===== ACESSAR DISCIPLINAS =====
+    await page.getByRole('button', { 
+        name: 'Disciplinas' 
+    }).click();
+
     await page.getByRole('link', {
         name: 'Disciplinas'
     }).click();
