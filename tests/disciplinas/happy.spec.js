@@ -32,7 +32,9 @@ test('CRUD de disciplinas', async ({ page }) => {
     await expect(page).toHaveURL(/dashboard/);
 
     //await page.pause();
-
+    const nomeDisciplina = `PI-${Date.now()}`;
+    const nomeEditado = `PIA-${Date.now()}`;
+    
     // ===== ACESSAR DISCIPLINAS =====
     await page.getByRole('button', { 
         name: 'Disciplinas' 
@@ -48,8 +50,8 @@ test('CRUD de disciplinas', async ({ page }) => {
     }).click();
 
     await page.getByRole('textbox', {
-        name: 'Nome da disciplina: *'
-    }).fill('PI');
+    name: 'Nome da disciplina: *'
+    }).fill(nomeDisciplina);
 
     await page.getByRole('button', {
         name: 'Selecione a área da disciplina'
@@ -66,10 +68,10 @@ test('CRUD de disciplinas', async ({ page }) => {
     // ===== READ =====
     await page.getByRole('textbox', {
         name: 'Pesquisar disciplina...'
-    }).fill('PI');
+    }).fill(nomeDisciplina);
 
     await expect(
-        page.getByText('PI')
+        page.getByText(nomeDisciplina), { exact: true }
     ).toBeVisible();
 
     // ===== UPDATE =====
@@ -78,8 +80,8 @@ test('CRUD de disciplinas', async ({ page }) => {
     }).first().click();
 
     await page.getByRole('textbox', {
-        name: 'Nome da disciplina: *'
-    }).fill('PIA');
+    name: 'Nome da disciplina: *'
+    }).fill(nomeEditado);
 
     await page.getByRole('button', {
         name: 'Salvar'
@@ -88,7 +90,7 @@ test('CRUD de disciplinas', async ({ page }) => {
     // ===== READ APÓS UPDATE =====
     await page.getByRole('textbox', {
         name: 'Pesquisar disciplina...'
-    }).fill('PIA');
+    }).fill(nomeEditado);
 
     await expect(
         page.getByText('PIA')

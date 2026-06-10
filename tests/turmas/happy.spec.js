@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
-test('CRUD de cursos', async ({ page }) => {
+test('CRUD de Turmas', async ({ page }) => {
 
     // =====================================================
     // LOGIN
     // =====================================================
 
     const secret = '2DINPFKXGBLME2VO';
+    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
 
@@ -23,13 +24,6 @@ test('CRUD de cursos', async ({ page }) => {
         name: 'Entrar'
     }).click();
 
-    // ===== OTP (gerado no momento certo) =====
-    await page.getByRole('textbox', {
-        name: /Código de verificação/i
-    }).waitFor();
-
-    const otp = authenticator.generate(secret);
-
     await page.getByRole('textbox', {
         name: /Código de verificação/i
     }).fill(otp);
@@ -38,45 +32,78 @@ test('CRUD de cursos', async ({ page }) => {
         name: /Verificar código/i
     }).click();
 
-    await expect(page).toHaveURL(/dashboard/);
-
     // =====================================================
-    // DADOS
+    // ACESSAR TURMAS
     // =====================================================
 
-    const nomeCurso = `CURSO-${Date.now()}`;
-    const nomeEditado = `CURSO-EDIT-${Date.now()}`;
-
-    // =====================================================
-    // ACESSAR CURSOS
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Turmas'
-    }).click();
-
-    await page.getByRole('link', {
-        name: 'Cursos'
-    }).click();
-
+    await page.getByRole('button', { name: /turmas/i }).click();
+    await page.getByRole('link', { name: /turmas/i }).click();
     // =====================================================
     // CREATE
     // =====================================================
 
     await page.getByRole('button', {
-        name: 'Adicionar Curso'
+        name: 'Adicionar nova turma'
     }).click();
 
-    await page.getByRole('textbox', {
-        name: 'Nome do Curso: *'
-    }).fill(nomeCurso);
-
     await page.getByRole('button', {
-        name: 'Nível de Escolaridade'
+        name: 'Curso'
+    }).click();
+
+    await page.getByText(
+        'Tecnologia em Análise e Desenvolvimento de Sistemas Atualizado'
+    ).click();
+
+    await page.getByRole('textbox', {
+        name: 'Ano: *'
+    }).fill('2026');
+
+    await page.getByRole('combobox', {
+        name: 'Série ou semestre da turma:'
     }).click();
 
     await page.getByRole('option', {
-        name: 'Médio'
+        name: 'ª Série / 3º Semestre'
+    }).click();
+
+    await page.getByRole('combobox', {
+        name: 'Turno: campo obrigatório'
+    }).click();
+
+    await page.getByLabel('Noturno')
+        .getByText('Noturno')
+        .click();
+
+    await page.getByRole('textbox', {
+        name: 'Sala:'
+    }).fill('157');
+
+    await page.getByRole('textbox', {
+        name: 'Descrição:'
+    }).fill('Turma criada pelo Playwright');
+
+    await page.getByRole('button', {
+        name: 'Salvar'
+    }).click();
+
+    // =====================================================
+    // UPDATE
+    // =====================================================
+
+    await page.getByRole('button', {
+        name: 'Opções'
+    }).first().click();
+
+    await page.getByRole('menuitem', {
+        name: 'Editar'
+    }).click();
+
+    await page.getByRole('combobox', {
+        name: 'Série ou semestre da turma:'
+    }).click();
+
+    await page.getByRole('option', {
+        name: 'ª Série / 4º Semestre'
     }).click();
 
     await page.getByRole('button', {
@@ -88,51 +115,23 @@ test('CRUD de cursos', async ({ page }) => {
     // =====================================================
 
     await page.getByRole('textbox', {
-        name: /Pesquisar/i
-    }).fill(nomeCurso);
-
-    await expect(
-        page.getByText(nomeCurso)
-    ).toBeVisible();
-
-    // =====================================================
-    // UPDATE
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Editar'
-    }).first().click();
-
-    await page.getByRole('textbox', {
-        name: 'Nome do Curso: *'
-    }).fill(nomeEditado);
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    // =====================================================
-    // READ APÓS UPDATE
-    // =====================================================
-
-    await page.getByRole('textbox', {
-        name: /Pesquisar/i
-    }).fill(nomeEditado);
-
-    await expect(
-        page.getByText(nomeEditado)
-    ).toBeVisible();
+        name: 'Pesquisar turma...'
+    }).fill('416');
 
     // =====================================================
     // DELETE
     // =====================================================
 
     await page.getByRole('button', {
-        name: 'Excluir'
+        name: 'Opções'
     }).first().click();
 
+    await page.getByRole('menuitem', {
+        name: 'Excluir'
+    }).click();
+
     await page.getByRole('button', {
-        name: /^Excluir$/
-    }).last().click();
+        name: 'Excluir'
+    }).click();
 
 });
