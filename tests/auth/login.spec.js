@@ -26,4 +26,5 @@ test('Login com automação TOTP', async ({ page }) => {
         }).click();
 
         await expect(page).toHaveURL(/dashboard/);
+
 });
