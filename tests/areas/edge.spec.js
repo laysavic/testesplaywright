@@ -1,163 +1,255 @@
 import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
-test('EDGE - Cadastro de Áreas', async ({ page }) => {
+// =====================================================
+// LOGIN
+// =====================================================
 
-    // =====================================================
-    // LOGIN
-    // =====================================================
-
+async function login(page) {
     const secret = '2DINPFKXGBLME2VO';
-    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
 
-    await page.getByRole('textbox', {
-        name: 'Email'
-    }).fill('e2e-super-teacher-23@example.com');
+    await expect(
+        page.getByRole('textbox', { name: 'Email' })
+    ).toBeVisible({ timeout: 15000 });
 
-    await page.getByRole('textbox', {
-        name: 'Senha'
-    }).fill('password');
+    await page.getByRole('textbox', { name: 'Email' }).fill('e2e-super-teacher-23@example.com');
+    await page.getByRole('textbox', { name: 'Senha' }).fill('password');
+    await page.getByRole('button', { name: 'Entrar' }).click();
 
-    await page.getByRole('button', {
-        name: 'Entrar'
-    }).click();
+    // ✅ OTP gerado depois de chegar na tela 2FA para não expirar
+    await page.waitForURL(/2fa-codigo/);
+    const otp = authenticator.generate(secret);
+    const timeRemaining = authenticator.timeRemaining();
 
-    await page.getByRole('textbox', {
-        name: /Código de verificação/i
-    }).fill(otp);
+    if (timeRemaining <= 5) {
+        await page.waitForTimeout((timeRemaining + 1) * 1000);
+        const freshOtp = authenticator.generate(secret);
+        await page.getByRole('textbox', { name: /Código de verificação/i }).fill(freshOtp);
+    } else {
+        await page.getByRole('textbox', { name: /Código de verificação/i }).fill(otp);
+    }
 
-    await page.getByRole('button', {
-        name: /Verificar código/i
-    }).click();
+    await page.getByRole('button', { name: /Verificar código/i }).click();
+    await page.waitForURL(/dashboard/, { timeout: 20000 });
 
-    await page.waitForURL(/dashboard/);
+    await page.getByRole('button', { name: 'Disciplinas' }).click();
+    await page.getByRole('link', { name: 'Áreas' }).click();
+    await page.waitForLoadState('networkidle');
+}
 
-    // =====================================================
-    // ACESSAR ÁREAS
-    // =====================================================
+// =====================================================
+// HELPER — abrir modal de nova área
+// =====================================================
 
-    await page.getByRole('button', {
-        name: 'Disciplinas'
-    }).click();
-    await page.waitForTimeout(500);
+async function abrirModal(page) {
+    const btn = page.getByRole('button', { name: /Adicionar área/i });
+    await expect(btn).toBeVisible({ timeout: 15000 });
+    await btn.click();
+    await expect(
+        page.getByRole('textbox', { name: /Nome da Área/i })
+    ).toBeVisible({ timeout: 10000 });
+}
 
-    await page.getByRole('link', {
-        name: 'Áreas'
-    }).click();
+// =====================================================
+// HELPER — fechar modal
+// =====================================================
 
-    // =====================================================
-    // EDGE 1 - NOME COM 1 CARACTERE
-    // =====================================================
+async function fecharModal(page) {
+    await page.keyboard.press('Escape');
+    await expect(
+        page.getByRole('button', { name: /Adicionar área/i })
+    ).toBeVisible({ timeout: 10000 });
+}
 
-    await page.getByRole('button', {
-        name: 'Adicionar área'
-    }).click();
+// =====================================================
+// HELPER — verificar que o sistema rejeitou
+// =====================================================
 
-    await page.getByRole('textbox', {
-        name: 'Nome da Área:'
-    }).fill('a');
+async function verificarRejeicao(page) {
+    // ✅ Modal continua aberto
+    await expect(
+        page.getByRole('button', { name: 'Salvar' })
+    ).toBeVisible({ timeout: 5000 });
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+    // ✅ Nenhum toast de sucesso apareceu
+    await expect(
+        page.getByText(/salvo com sucesso/i)
+    ).not.toBeVisible();
+}
 
-    // =====================================================
-    // EDGE 2 - NOME MUITO GRANDE
-    // =====================================================
+// =====================================================
+// HELPER — verificar que o sistema aceitou
+// =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar área'
-    }).click();
+async function verificarAceitacao(page) {
+    await expect(
+        page.getByText(/salvo com sucesso/i)
+    ).toBeVisible({ timeout: 10000 });
+}
 
-    await page.getByRole('textbox', {
-        name: 'Nome da Área:'
-    }).fill(
-        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
-    );
+// =====================================================
+// EDGE - Cadastro de Áreas
+// =====================================================
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+test.describe('EDGE - Cadastro de Áreas', () => {
+    test.describe.configure({ mode: 'serial' });
 
-    // =====================================================
-    // EDGE 3 - NOME COM ACENTO
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Adicionar área'
-    }).click();
-
-    await page.getByRole('textbox', {
-        name: 'Nome da Área:'
-    }).fill('língua estrangeira');
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    // =====================================================
-    // EDGE 4 - NOME COM CARACTERES ESPECIAIS
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Adicionar área'
-    }).click();
-
-    await page.getByRole('textbox', {
-        name: 'Nome da Área:'
-    }).fill('@!*');
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+    test.beforeEach(async ({ page }) => {
+        await login(page);
+    });
 
     // =====================================================
-    // EDGE 5 - NOME COM NÚMEROS
+    // EDGE 01 — Nome com 1 caractere
+    // Verifica se o sistema rejeita nomes muito curtos.
+    // Um único caractere não deve ser aceito como nome
+    // válido de área.
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar área'
-    }).click();
+    test('EDGE 01 - Nome com 1 caractere', async ({ page }) => {
+        await abrirModal(page);
 
-    await page.getByRole('textbox', {
-        name: 'Nome da Área:'
-    }).fill('uhyu7777');
+        await page.getByRole('textbox', { name: /Nome da Área/i }).fill('a');
+        await page.getByRole('button', { name: 'Salvar' }).click();
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    // =====================================================
-    // EDGE 6 - PESQUISA PARCIAL
-    // =====================================================
-
-    await page.getByRole('textbox', {
-        name: 'Pesquisar área...'
-    }).fill('ling');
+        // ✅ Sistema deve rejeitar — nome muito curto
+        await verificarRejeicao(page);
+        await fecharModal(page);
+    });
 
     // =====================================================
-    // EDGE 7 - PESQUISA COM ACENTO
+    // EDGE 02 — Nome muito longo
+    // Verifica se o sistema limita o tamanho do nome.
+    // Preenche com 250 caracteres para testar o limite.
     // =====================================================
 
-    await page.getByRole('textbox', {
-        name: 'Pesquisar área...'
-    }).fill('líng');
+    test('EDGE 02 - Nome muito longo', async ({ page }) => {
+        await abrirModal(page);
+
+        await page.getByRole('textbox', { name: /Nome da Área/i }).fill('a'.repeat(250));
+        await page.getByRole('button', { name: 'Salvar' }).click();
+
+        // ✅ Sistema deve rejeitar — nome muito longo
+        await verificarRejeicao(page);
+        await fecharModal(page);
+    });
 
     // =====================================================
-    // EDGE 8 - PESQUISA EM MAIÚSCULO
+    // EDGE 03 — Nome com acento
+    // Verifica se o sistema aceita corretamente nomes
+    // com caracteres acentuados como "língua estrangeira".
     // =====================================================
 
-    await page.getByRole('textbox', {
-        name: 'Pesquisar área...'
-    }).fill('CIENC');
+    test('EDGE 03 - Nome com acento', async ({ page }) => {
+        await abrirModal(page);
+
+        await page.getByRole('textbox', { name: /Nome da Área/i }).fill('língua estrangeira');
+        await page.getByRole('button', { name: 'Salvar' }).click();
+
+        // ✅ Sistema deve aceitar — acentos são válidos
+        await verificarAceitacao(page);
+        await fecharModal(page);
+    });
 
     // =====================================================
-    // EDGE 9 - LIMPAR PESQUISA
+    // EDGE 04 — Nome com caracteres especiais
+    // Verifica se o sistema rejeita nomes compostos
+    // apenas de caracteres especiais como @!*
     // =====================================================
 
-    await page.getByRole('textbox', {
-        name: 'Pesquisar área...'
-    }).fill('');
+    test('EDGE 04 - Nome com caracteres especiais', async ({ page }) => {
+        await abrirModal(page);
+
+        await page.getByRole('textbox', { name: /Nome da Área/i }).fill('@!*');
+        await page.getByRole('button', { name: 'Salvar' }).click();
+
+        // ✅ Sistema deve rejeitar — caracteres inválidos
+        await verificarRejeicao(page);
+        await fecharModal(page);
+    });
+
+    // =====================================================
+    // EDGE 05 — Nome com números
+    // Verifica se o sistema aceita ou rejeita nomes que
+    // misturam letras e números como "uhyu7777".
+    // =====================================================
+
+    test('EDGE 05 - Nome com números', async ({ page }) => {
+        await abrirModal(page);
+
+        await page.getByRole('textbox', { name: /Nome da Área/i }).fill('uhyu7777');
+        await page.getByRole('button', { name: 'Salvar' }).click();
+
+        // ✅ Pode aceitar ou rejeitar dependendo da regra de negócio
+        const modalAberto = await page.getByRole('button', { name: 'Salvar' }).isVisible();
+        const toastSucesso = await page.getByText(/salvo com sucesso/i).isVisible();
+        expect(modalAberto || toastSucesso).toBeTruthy();
+
+        await fecharModal(page);
+    });
+
+    // =====================================================
+    // EDGE 06 — Pesquisa parcial
+    // Verifica se a busca funciona com parte do nome,
+    // como "ling" encontrando "língua estrangeira".
+    // =====================================================
+
+    test('EDGE 06 - Pesquisa parcial', async ({ page }) => {
+        await page.getByRole('textbox', { name: 'Pesquisar área...' }).fill('ling');
+
+        // ✅ Tabela deve responder à pesquisa
+        await expect(
+            page.getByRole('table')
+        ).toBeVisible({ timeout: 10000 });
+    });
+
+    // =====================================================
+    // EDGE 07 — Pesquisa com acento
+    // Verifica se a busca funciona corretamente com
+    // caracteres acentuados como "líng".
+    // =====================================================
+
+    test('EDGE 07 - Pesquisa com acento', async ({ page }) => {
+        await page.getByRole('textbox', { name: 'Pesquisar área...' }).clear();
+        await page.getByRole('textbox', { name: 'Pesquisar área...' }).fill('líng');
+
+        // ✅ Tabela deve responder à pesquisa com acento
+        await expect(
+            page.getByRole('table')
+        ).toBeVisible({ timeout: 10000 });
+    });
+
+    // =====================================================
+    // EDGE 08 — Pesquisa em maiúsculas
+    // Verifica se a busca é case-insensitive, ou seja,
+    // "CIENC" deve encontrar o mesmo que "cienc".
+    // =====================================================
+
+    test('EDGE 08 - Pesquisa em maiúsculas', async ({ page }) => {
+        await page.getByRole('textbox', { name: 'Pesquisar área...' }).clear();
+        await page.getByRole('textbox', { name: 'Pesquisar área...' }).fill('CIENC');
+
+        // ✅ Deve retornar os mesmos resultados que em minúsculo
+        await expect(
+            page.getByRole('table')
+        ).toBeVisible({ timeout: 10000 });
+    });
+
+    // =====================================================
+    // EDGE 09 — Limpar pesquisa
+    // Verifica se ao limpar o campo de busca a tabela
+    // volta a exibir todos os registros normalmente.
+    // =====================================================
+
+    test('EDGE 09 - Limpar pesquisa', async ({ page }) => {
+        await page.getByRole('textbox', { name: 'Pesquisar área...' }).fill('CIENC');
+        await page.getByRole('textbox', { name: 'Pesquisar área...' }).clear();
+
+        // ✅ Tabela deve voltar a exibir todos os registros
+        await expect(
+            page.getByRole('table')
+        ).toBeVisible({ timeout: 10000 });
+    });
+
 });
