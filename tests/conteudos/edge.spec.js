@@ -1,233 +1,132 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
-test('EDGE - Conteúdos', async ({ page }) => {
+test('CRUD de Conteúdos', async ({ page }) => {
 
     // =====================================================
     // LOGIN
     // =====================================================
 
     const secret = '2DINPFKXGBLME2VO';
-    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
 
-    await page.getByRole('textbox', {
-        name: 'Email'
-    }).fill('e2e-super-teacher-23@example.com');
+    await expect(
+        page.getByRole('textbox', { name: 'Email' })
+    ).toBeVisible({ timeout: 15000 });
 
-    await page.getByRole('textbox', {
-        name: 'Senha'
-    }).fill('password');
+    await page.getByRole('textbox', { name: 'Email' }).fill('e2e-super-teacher-23@example.com');
+    await page.getByRole('textbox', { name: 'Senha' }).fill('password');
+    await page.getByRole('button', { name: 'Entrar' }).click();
 
-    await page.getByRole('button', {
-        name: 'Entrar'
-    }).click();
+    // ✅ OTP gerado depois de chegar na tela 2FA para não expirar
+    await page.waitForURL(/2fa-codigo/);
+    const otp = authenticator.generate(secret);
+    const timeRemaining = authenticator.timeRemaining();
 
-    await page.getByRole('textbox', {
-        name: /Código de verificação/i
-    }).fill(otp);
+    if (timeRemaining <= 5) {
+        await page.waitForTimeout((timeRemaining + 1) * 1000);
+        const freshOtp = authenticator.generate(secret);
+        await page.getByRole('textbox', { name: /Código de verificação/i }).fill(freshOtp);
+    } else {
+        await page.getByRole('textbox', { name: /Código de verificação/i }).fill(otp);
+    }
 
-    await page.getByRole('button', {
-        name: /Verificar código/i
-    }).click();
+    await page.getByRole('button', { name: /Verificar código/i }).click();
+    await expect(page).toHaveURL(/dashboard/, { timeout: 20000 });
 
-    // Aguarda carregar o dashboard
-    await page.waitForURL(/dashboard/);
+    const nomeConteudo = `Conteudo-${Date.now()}`;
+    const nomeEditado = `ConteudoEditado-${Date.now()}`;
 
     // =====================================================
     // ACESSAR CONTEÚDOS
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Disciplinas'
-    }).click();
-
-    await page.getByRole('link', {
-        name: 'Conteúdos'
-    }).click();
-
-    // Aguarda a tela carregar
-    await page.getByRole('button', {
-        name: 'Adicionar Conteúdo'
-    }).waitFor();
+    await page.getByRole('button', { name: 'Disciplinas' }).click();
+    await page.getByRole('link', { name: 'Conteúdos' }).click();
+    await page.waitForLoadState('networkidle');
 
     // =====================================================
-    // Helper para selecionar disciplina
+    // CREATE
     // =====================================================
 
-    async function selecionarDisciplina() {
+    await page.getByRole('button', { name: 'Adicionar Conteúdo' }).click();
 
-        await page.locator('#content-disciplina').click();
+    await page.getByRole('textbox', { name: 'Nome do conteúdo: *' }).fill(nomeConteudo);
 
-        await page.getByPlaceholder(
-            'Pesquisar disciplina...'
-        ).fill('mat');
+    await page.getByRole('button', { name: 'Disciplina' }).click();
+    await page.getByPlaceholder('Pesquisar disciplina...').fill('Mat');
+    await page.getByRole('option', { name: 'Matemática' }).click();
 
-        await page.getByText(
-            'Matemática',
-            { exact: true }
-        ).click();
-    }
+    await page.getByRole('button', { name: 'Salvar' }).click();
 
-    // =====================================================
-    // EDGE 01
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Adicionar Conteúdo'
-    }).click();
-
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('a');
-
-    await selecionarDisciplina();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    await page.waitForTimeout(1000);
-    await page.keyboard.press('Escape');
+    // ✅ Confirma que salvou com sucesso
+    await expect(
+        page.getByText(/salvo com sucesso/i)
+    ).toBeVisible({ timeout: 10000 });
 
     // =====================================================
-    // EDGE 02
+    // READ após CREATE
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar Conteúdo'
-    }).click();
+    // ✅ Espera tabela carregar antes de pesquisar
+    await expect(page.getByText('Atualizando')).not.toBeVisible({ timeout: 15000 });
 
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('A'.repeat(250));
-
-    await selecionarDisciplina();
-
-    await page.pause();
-    
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    await page.waitForTimeout(1000);
-    await page.keyboard.press('Escape');
+    await page.getByRole('textbox', { name: 'Pesquisar conteúdo...' }).fill(nomeConteudo);
+    await expect(
+        page.getByText(nomeConteudo).first()
+    ).toBeVisible({ timeout: 10000 });
 
     // =====================================================
-    // EDGE 03
+    // UPDATE
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar Conteúdo'
-    }).click();
+    await expect(
+        page.getByRole('button', { name: 'Editar' }).first()
+    ).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Editar' }).first().click();
 
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('conteudo123456');
+    await page.getByRole('textbox', { name: 'Nome do conteúdo: *' }).clear();
+    await page.getByRole('textbox', { name: 'Nome do conteúdo: *' }).fill(nomeEditado);
 
-    await selecionarDisciplina();
+    await page.getByRole('button', { name: 'Salvar' }).click();
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    await page.waitForTimeout(1000);
-    await page.keyboard.press('Escape');
+    // ✅ Confirma que atualizou com sucesso
+    await expect(
+        page.getByText(/salvo com sucesso/i)
+    ).toBeVisible({ timeout: 10000 });
 
     // =====================================================
-    // EDGE 04
+    // READ após UPDATE
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar Conteúdo'
-    }).click();
+    // ✅ Espera tabela recarregar
+    await expect(page.getByText('Atualizando')).not.toBeVisible({ timeout: 15000 });
 
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('conteudo      com      espacos');
-
-    await selecionarDisciplina();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    await page.waitForTimeout(1000);
-    await page.keyboard.press('Escape');
+    await page.getByRole('textbox', { name: 'Pesquisar conteúdo...' }).clear();
+    await page.getByRole('textbox', { name: 'Pesquisar conteúdo...' }).fill(nomeEditado);
+    await expect(
+        page.getByText(nomeEditado).first()
+    ).toBeVisible({ timeout: 10000 });
 
     // =====================================================
-    // EDGE 05
+    // DELETE
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar Conteúdo'
-    }).click();
+    await expect(
+        page.getByRole('button', { name: 'Excluir' }).first()
+    ).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Excluir' }).first().click();
 
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('CONTEUDO TESTE');
+    // ✅ Confirma o modal de exclusão e clica em Excluir
+    await expect(
+        page.getByRole('button', { name: /^Excluir$/ }).last()
+    ).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: /^Excluir$/ }).last().click();
 
-    await selecionarDisciplina();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    await page.waitForTimeout(1000);
-    await page.keyboard.press('Escape');
-
-    // =====================================================
-    // EDGE 06
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Adicionar Conteúdo'
-    }).click();
-
-    await page.getByRole('textbox', {
-        name: 'Nome do conteúdo: *'
-    }).fill('@#!$%¨&*');
-
-    await selecionarDisciplina();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    await page.waitForTimeout(1000);
-    await page.keyboard.press('Escape');
-
-    // =====================================================
-    // EDGE 07
-    // =====================================================
-
-    await page.getByRole('textbox', {
-        name: 'Pesquisar conteúdo...'
-    }).fill('pri');
-
-    // =====================================================
-    // EDGE 08
-    // =====================================================
-
-    await page.getByRole('textbox', {
-        name: 'Pesquisar conteúdo...'
-    }).fill('');
-
-    await page.getByRole('textbox', {
-        name: 'Pesquisar conteúdo...'
-    }).fill('evoluç');
-
-    // =====================================================
-    // EDGE 09
-    // =====================================================
-
-    await page.getByRole('textbox', {
-        name: 'Pesquisar conteúdo...'
-    }).fill('');
-
-    await page.getByRole('textbox', {
-        name: 'Pesquisar conteúdo...'
-    }).fill('EVOLUÇÃO');
+    // ✅ Confirma que foi deletado
+    await expect(
+        page.getByText(/excluído com sucesso/i)
+    ).toBeVisible({ timeout: 10000 });
 
 });
