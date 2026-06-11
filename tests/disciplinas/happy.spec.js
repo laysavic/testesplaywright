@@ -3,9 +3,11 @@ import { authenticator } from 'otplib';
 
 test('CRUD de disciplinas', async ({ page }) => {
 
-    // ===== LOGIN =====
+    // =====================================================
+    // LOGIN
+    // =====================================================
+
     const secret = '2DINPFKXGBLME2VO';
-    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
 
@@ -21,36 +23,64 @@ test('CRUD de disciplinas', async ({ page }) => {
         name: 'Entrar'
     }).click();
 
-    await page.getByRole('textbox', {
-        name: /Código de verificação/i
-    }).fill(otp);
+    await page.waitForURL(/2fa-codigo/);
+
+    const otp = authenticator.generate(secret);
+    const timeRemaining = authenticator.timeRemaining();
+
+    if (timeRemaining <= 5) {
+        await page.waitForTimeout((timeRemaining + 1) * 1000);
+
+        const freshOtp = authenticator.generate(secret);
+
+        await page.getByRole('textbox', {
+            name: /Código de verificação/i
+        }).fill(freshOtp);
+    } else {
+        await page.getByRole('textbox', {
+            name: /Código de verificação/i
+        }).fill(otp);
+    }
 
     await page.getByRole('button', {
         name: /Verificar código/i
     }).click();
 
-    await expect(page).toHaveURL(/dashboard/);
+    await expect(page).toHaveURL(/dashboard/, {
+        timeout: 15000
+    });
 
-    //await page.pause();
+    // =====================================================
+    // DADOS
+    // =====================================================
+
     const nomeDisciplina = `PI-${Date.now()}`;
     const nomeEditado = `PIA-${Date.now()}`;
-    
-    // ===== ACESSAR DISCIPLINAS =====
-    await page.getByRole('button', { 
-        name: 'Disciplinas' 
+
+    // =====================================================
+    // ACESSAR DISCIPLINAS
+    // =====================================================
+
+    await page.getByRole('button', {
+        name: 'Disciplinas'
     }).click();
 
     await page.getByRole('link', {
         name: 'Disciplinas'
     }).click();
 
-    // ===== CREATE =====
+    await page.waitForLoadState('networkidle');
+
+    // =====================================================
+    // CREATE
+    // =====================================================
+
     await page.getByRole('button', {
         name: 'Adicionar disciplina'
     }).click();
 
     await page.getByRole('textbox', {
-    name: 'Nome da disciplina: *'
+        name: 'Nome da disciplina: *'
     }).fill(nomeDisciplina);
 
     await page.getByRole('button', {
@@ -65,44 +95,108 @@ test('CRUD de disciplinas', async ({ page }) => {
         name: 'Salvar'
     }).click();
 
-    // ===== READ =====
+    await expect(
+        page.getByText(/Disciplina salva com sucesso/i)
+    ).toBeVisible({
+        timeout: 10000
+    });
+
+    // =====================================================
+    // READ
+    // =====================================================
+
+    await expect(
+        page.getByText('Atualizando')
+    ).not.toBeVisible({
+        timeout: 15000
+    });
+
     await page.getByRole('textbox', {
         name: 'Pesquisar disciplina...'
     }).fill(nomeDisciplina);
 
     await expect(
-        page.getByText(nomeDisciplina), { exact: true }
-    ).toBeVisible();
+        page.getByText(nomeDisciplina, { exact: true })
+    ).toBeVisible({
+        timeout: 10000
+    });
 
-    // ===== UPDATE =====
+    // =====================================================
+    // UPDATE
+    // =====================================================
+
     await page.getByRole('button', {
         name: 'Editar'
     }).first().click();
 
+    await page.waitForLoadState('networkidle');
+
     await page.getByRole('textbox', {
-    name: 'Nome da disciplina: *'
+        name: 'Nome da disciplina: *'
+    }).clear();
+
+    await page.getByRole('textbox', {
+        name: 'Nome da disciplina: *'
     }).fill(nomeEditado);
 
     await page.getByRole('button', {
         name: 'Salvar'
     }).click();
 
-    // ===== READ APÓS UPDATE =====
+    await expect(
+        page.getByText(/Disciplina salva com sucesso/i)
+    ).toBeVisible({
+        timeout: 10000
+    });
+
+    // =====================================================
+    // READ APÓS UPDATE
+    // =====================================================
+
+    await expect(
+        page.getByText('Atualizando')
+    ).not.toBeVisible({
+        timeout: 15000
+    });
+
+    await page.getByRole('textbox', {
+        name: 'Pesquisar disciplina...'
+    }).clear();
+
     await page.getByRole('textbox', {
         name: 'Pesquisar disciplina...'
     }).fill(nomeEditado);
 
     await expect(
-        page.getByText('PIA')
-    ).toBeVisible();
+        page.getByText(nomeEditado)
+    ).toBeVisible({
+        timeout: 10000
+    });
 
-    // ===== DELETE =====
+    // =====================================================
+    // DELETE
+    // =====================================================
+
     await page.getByRole('button', {
         name: 'Excluir'
     }).first().click();
 
+    await expect(
+        page.getByRole('button', {
+            name: /^Excluir$/
+        }).last()
+    ).toBeVisible({
+        timeout: 10000
+    });
+
     await page.getByRole('button', {
         name: /^Excluir$/
     }).last().click();
+
+    await expect(
+        page.getByText(/Disciplina excluída com sucesso/i)
+    ).toBeVisible({
+        timeout: 10000
+    });
 
 });
