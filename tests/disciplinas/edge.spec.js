@@ -1,13 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
-test('EDGE - Casos extremos do CRUD de disciplinas', async ({ page }) => {
+// =====================================================
+// LOGIN
+// =====================================================
 
-    // ===== LOGIN =====
+async function login(page) {
     const secret = '2DINPFKXGBLME2VO';
-    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
+
+    await expect(
+        page.getByRole('textbox', { name: 'Email' })
+    ).toBeVisible({ timeout: 15000 });
 
     await page.getByRole('textbox', { name: 'Email' })
         .fill('e2e-super-teacher-23@example.com');
@@ -18,150 +23,199 @@ test('EDGE - Casos extremos do CRUD de disciplinas', async ({ page }) => {
     await page.getByRole('button', { name: 'Entrar' })
         .click();
 
-    await page.getByRole('textbox', {
-        name: /Código de verificação/i
-    }).fill(otp);
+    await page.waitForURL(/2fa-codigo/);
+
+    const otp = authenticator.generate(secret);
+    const timeRemaining = authenticator.timeRemaining();
+
+    if (timeRemaining <= 5) {
+        await page.waitForTimeout((timeRemaining + 1) * 1000);
+
+        const freshOtp = authenticator.generate(secret);
+
+        await page.getByRole('textbox', {
+            name: /Código de verificação/i
+        }).fill(freshOtp);
+    } else {
+        await page.getByRole('textbox', {
+            name: /Código de verificação/i
+        }).fill(otp);
+    }
 
     await page.getByRole('button', {
         name: /Verificar código/i
     }).click();
 
+    await page.waitForURL(/dashboard/, {
+        timeout: 20000
+    });
 
-     // ===== ACESSAR DISCIPLINAS =====
-    await page.getByRole('button', { 
-        name: 'Disciplinas' 
+    await page.getByRole('button', {
+        name: 'Disciplinas'
     }).click();
 
     await page.getByRole('link', {
         name: 'Disciplinas'
     }).click();
 
-    // =====================================================
-    // EDGE 01 - Nome muito grande
-    // =====================================================
+    await page.waitForLoadState('networkidle');
+}
 
-    await page.getByRole('button', {
-        name: 'Adicionar disciplina'
-    }).click();
+// =====================================================
+// HELPER — abrir modal
+// =====================================================
 
+async function abrirModal(page) {
+    const btn = page.getByRole('button', {
+        name: /Adicionar disciplina/i
+    });
+
+    await expect(btn).toBeVisible({ timeout: 10000 });
+
+    await btn.click();
+
+    await expect(
+        page.getByRole('textbox', {
+            name: 'Nome da disciplina: *'
+        })
+    ).toBeVisible();
+}
+
+// =====================================================
+// HELPER — preencher disciplina
+// =====================================================
+
+async function preencherDisciplina(page, nome) {
     await page.getByRole('textbox', {
         name: 'Nome da disciplina: *'
-    }).fill(
-        'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
-    );
-
-    await page.getByRole('button', {
-        name: 'Selecione a área da disciplina'
-    }).click();
-
-    await page.getByRole('option', {
-        name: 'Ciências humanas e suas tecnologias'
-    }).click();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
-
-    // =====================================================
-    // EDGE 02 - Caracteres especiais
-    // =====================================================
-
-    await page.getByRole('button', {
-        name: 'Adicionar disciplina'
-    }).click();
-
-    await page.getByRole('textbox', {
-        name: 'Nome da disciplina: *'
-    }).fill('@#$%¨&*()');
+    }).fill(nome);
 
     await page.getByRole('button', {
         name: 'Selecione a área da disciplina'
     }).click();
 
     await page.getByRole('option').first().click();
+}
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+// =====================================================
+// HELPER — rejeição
+// =====================================================
 
-    // =====================================================
-    // EDGE 03 - Apenas números
-    // =====================================================
+async function verificarRejeicao(page) {
+    await expect(
+        page.getByRole('button', {
+            name: 'Salvar'
+        })
+    ).toBeVisible();
+}
 
-    await page.getByRole('button', {
-        name: 'Adicionar disciplina'
-    }).click();
+// =====================================================
+// EDGE - Disciplinas
+// =====================================================
 
-    await page.getByRole('textbox', {
-        name: 'Nome da disciplina: *'
-    }).fill('123456');
+test.describe('EDGE - Disciplinas', () => {
+    test.describe.configure({ mode: 'serial' });
 
-    await page.getByRole('button', {
-        name: 'Selecione a área da disciplina'
-    }).click();
-
-    await page.getByRole('option', {
-        name: 'Ciências da natureza e suas tecnologias'
-    }).click();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+    test.beforeEach(async ({ page }) => {
+        await login(page);
+    });
 
     // =====================================================
-    // EDGE 04 - Letras e números
+    // EDGE 01 — Nome muito grande
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar disciplina'
-    }).click();
+    test('EDGE 01 - Nome muito grande', async ({ page }) => {
+        await abrirModal(page);
 
-    await page.getByRole('textbox', {
-        name: 'Nome da disciplina: *'
-    }).fill('Matematica2026');
+        await preencherDisciplina(page, 'A'.repeat(100));
 
-    await page.getByRole('button', {
-        name: 'Selecione a área da disciplina'
-    }).click();
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
 
-    await page.getByRole('option').first().click();
-
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+        await verificarRejeicao(page);
+    });
 
     // =====================================================
-    // EDGE 05 - Pesquisa sem resultados
+    // EDGE 02 — Caracteres especiais
     // =====================================================
 
-    await page.getByRole('textbox', {
-        name: 'Pesquisar disciplina...'
-    }).fill('xyz123teste');
+    test('EDGE 02 - Caracteres especiais', async ({ page }) => {
+        await abrirModal(page);
 
-    await page.keyboard.press('Enter');
+        await preencherDisciplina(page, '@#$%¨&*()');
+
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
+
+        await verificarRejeicao(page);
+    });
 
     // =====================================================
-    // EDGE 06 - Espaços antes e depois
+    // EDGE 03 — Apenas números
     // =====================================================
 
-    await page.getByRole('button', {
-        name: 'Adicionar disciplina'
-    }).click();
+    test('EDGE 03 - Apenas números', async ({ page }) => {
+        await abrirModal(page);
 
-    await page.getByRole('textbox', {
-        name: 'Nome da disciplina: *'
-    }).fill('     Matemática     ');
+        await preencherDisciplina(page, '123456');
 
-    await page.getByRole('button', {
-        name: 'Selecione a área da disciplina'
-    }).click();
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
 
-    await page.getByRole('option', {
-        name: 'Matemática e suas tecnologias'
-    }).click();
+        await verificarRejeicao(page);
+    });
 
-    await page.getByRole('button', {
-        name: 'Salvar'
-    }).click();
+    // =====================================================
+    // EDGE 04 — Letras e números
+    // =====================================================
 
+    test('EDGE 04 - Letras e números', async ({ page }) => {
+        await abrirModal(page);
+
+        await preencherDisciplina(page, 'Matematica2026');
+
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
+
+        await verificarRejeicao(page);
+    });
+
+    // =====================================================
+    // EDGE 05 — Pesquisa sem resultados
+    // =====================================================
+
+    test('EDGE 05 - Pesquisa sem resultados', async ({ page }) => {
+        await page.getByRole('textbox', {
+            name: 'Pesquisar disciplina...'
+        }).fill('xyz123teste');
+
+        await page.keyboard.press('Enter');
+
+        await expect(
+            page.getByRole('table')
+        ).toBeVisible();
+    });
+
+    // =====================================================
+    // EDGE 06 — Espaços antes e depois
+    // =====================================================
+
+    test('EDGE 06 - Espaços antes e depois', async ({ page }) => {
+        await abrirModal(page);
+
+        await preencherDisciplina(
+            page,
+            '     Matemática     '
+        );
+
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
+
+        await verificarRejeicao(page);
+    });
 });
