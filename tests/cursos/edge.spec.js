@@ -1,136 +1,254 @@
 import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
-test('EDGE - Cadastro de Cursos', async ({ page }) => {
+// =====================================================
+// LOGIN
+// =====================================================
 
-    // =====================================================
-    // LOGIN
-    // =====================================================
-
+async function login(page) {
     const secret = '2DINPFKXGBLME2VO';
-    const otp = authenticator.generate(secret);
 
     await page.goto('https://app.avaliei.com.br/login');
 
-    await page.getByRole('textbox', { name: 'Email' })
-        .fill('e2e-super-teacher-23@example.com');
-
-    await page.getByRole('textbox', { name: 'Senha' })
-        .fill('password');
-
-    await page.getByRole('button', { name: 'Entrar' }).click();
+    await expect(
+        page.getByRole('textbox', { name: 'Email' })
+    ).toBeVisible({ timeout: 15000 });
 
     await page.getByRole('textbox', {
-        name: /Código de verificação/i
-    }).fill(otp);
+        name: 'Email'
+    }).fill('e2e-super-teacher-23@example.com');
+
+    await page.getByRole('textbox', {
+        name: 'Senha'
+    }).fill('password');
+
+    await page.getByRole('button', {
+        name: 'Entrar'
+    }).click();
+
+    await page.waitForURL(/2fa-codigo/);
+
+    const otp = authenticator.generate(secret);
+    const timeRemaining = authenticator.timeRemaining();
+
+    if (timeRemaining <= 5) {
+        await page.waitForTimeout((timeRemaining + 1) * 1000);
+
+        const freshOtp = authenticator.generate(secret);
+
+        await page.getByRole('textbox', {
+            name: /Código de verificação/i
+        }).fill(freshOtp);
+    } else {
+        await page.getByRole('textbox', {
+            name: /Código de verificação/i
+        }).fill(otp);
+    }
 
     await page.getByRole('button', {
         name: /Verificar código/i
     }).click();
 
-    await page.waitForURL(/dashboard/);
+    await page.waitForURL(/dashboard/, {
+        timeout: 20000
+    });
 
-    // =====================================================
-    // ACESSAR CURSOS
-    // =====================================================
+    await page.getByRole('button', {
+        name: /turmas/i
+    }).click();
 
-    await page.getByRole('button', { name: /turmas/i }).click();
-    await page.getByRole('link', { name: /cursos/i }).click();
+    await page.getByRole('link', {
+        name: /cursos/i
+    }).click();
 
-    // garante que carregou a tela
-    const addCursoBtn = page.getByRole('button', {
+    await page.waitForLoadState('networkidle');
+}
+
+// =====================================================
+// HELPER — Abrir modal
+// =====================================================
+
+async function abrirModal(page) {
+    const botao = page.getByRole('button', {
         name: /Adicionar Curso/i
     });
 
-    await expect(addCursoBtn).toBeVisible({ timeout: 15000 });
+    await expect(botao).toBeVisible({
+        timeout: 15000
+    });
+
+    await botao.click();
+
+    await expect(
+        page.getByRole('textbox', {
+            name: /Nome do Curso/i
+        })
+    ).toBeVisible({
+        timeout: 10000
+    });
+}
+
+// =====================================================
+// HELPER — Preencher formulário
+// =====================================================
+
+async function preencherCurso(page, nome) {
+
+    await page.getByRole('textbox', {
+        name: /Nome do Curso/i
+    }).fill(nome);
+
+    await page.getByRole('button', {
+        name: 'Nível de Escolaridade'
+    }).click();
+
+    await page.getByRole('option')
+        .first()
+        .click();
+}
+
+// =====================================================
+// EDGE - Cursos
+// =====================================================
+
+test.describe('EDGE - Cadastro de Cursos', () => {
+
+    test.describe.configure({
+        mode: 'serial'
+    });
+
+    test.beforeEach(async ({ page }) => {
+        await login(page);
+    });
 
     // =====================================================
-    // EDGE 1 - Nome com 1 caractere
+    // EDGE 01 - Nome com 1 caractere
     // =====================================================
 
-    await addCursoBtn.click();
+    test('EDGE 01 - Nome com 1 caractere', async ({ page }) => {
 
-    await page.getByRole('textbox', { name: /Nome do Curso/i }).fill('a');
+        await abrirModal(page);
+        await preencherCurso(page, 'a');
 
-    await page.getByRole('button', { name: 'Nível de Escolaridade' }).click();
-    await page.getByRole('option', { name: /Fundamental|Técnico|Médio/i }).first().click();
-
-    await page.getByRole('button', { name: 'Salvar' }).click();
-
-    // =====================================================
-    // EDGE 2 - Nome muito longo
-    // =====================================================
-
-    await addCursoBtn.click();
-
-    await page.getByRole('textbox', { name: /Nome do Curso/i })
-        .fill('a'.repeat(200));
-
-    await page.getByRole('button', { name: 'Nível de Escolaridade' }).click();
-    await page.getByRole('option', { name: /Fundamental|Técnico|Médio/i }).first().click();
-
-    await page.getByRole('button', { name: 'Salvar' }).click();
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
+    });
 
     // =====================================================
-    // EDGE 3 - Nome com números
+    // EDGE 02 - Nome muito longo
     // =====================================================
 
-    await addCursoBtn.click();
+    test('EDGE 02 - Nome muito longo', async ({ page }) => {
 
-    await page.getByRole('textbox', { name: /Nome do Curso/i })
-        .fill('curso123456');
+        await abrirModal(page);
+        await preencherCurso(page, 'a'.repeat(200));
 
-    await page.getByRole('button', { name: 'Nível de Escolaridade' }).click();
-    await page.getByRole('option', { name: /Fundamental|Técnico|Médio/i }).first().click();
-
-    await page.getByRole('button', { name: 'Salvar' }).click();
-
-    // =====================================================
-    // EDGE 4 - Espaços internos
-    // =====================================================
-
-    await addCursoBtn.click();
-
-    await page.getByRole('textbox', { name: /Nome do Curso/i })
-        .fill('curso     com     espaços');
-
-    await page.getByRole('button', { name: 'Nível de Escolaridade' }).click();
-    await page.getByRole('option', { name: /Fundamental|Técnico|Médio/i }).first().click();
-
-    await page.getByRole('button', { name: 'Salvar' }).click();
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
+    });
 
     // =====================================================
-    // EDGE 5 - Maiúsculo
+    // EDGE 03 - Nome com números
     // =====================================================
 
-    await addCursoBtn.click();
+    test('EDGE 03 - Nome com números', async ({ page }) => {
 
-    await page.getByRole('textbox', { name: /Nome do Curso/i })
-        .fill('CURSO EDGE TESTE');
+        await abrirModal(page);
+        await preencherCurso(page, 'curso123456');
 
-    await page.getByRole('button', { name: 'Nível de Escolaridade' }).click();
-    await page.getByRole('option', { name: /Fundamental|Técnico|Médio/i }).first().click();
-
-    await page.getByRole('button', { name: 'Salvar' }).click();
-
-    // =====================================================
-    // EDGE 6 - Pesquisa parcial
-    // =====================================================
-
-    const search = page.getByRole('textbox', { name: /Pesquisar/i });
-
-    await search.fill('cur');
-    await search.press('Enter');
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
+    });
 
     // =====================================================
-    // EDGE 7 - Pesquisa com acento
+    // EDGE 04 - Espaços internos
     // =====================================================
 
-    await search.fill('líng');
+    test('EDGE 04 - Espaços internos', async ({ page }) => {
+
+        await abrirModal(page);
+        await preencherCurso(page, 'curso     com     espaços');
+
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
+    });
 
     // =====================================================
-    // EDGE 8 - Limpar pesquisa
+    // EDGE 05 - Apenas maiúsculas
     // =====================================================
 
-    await search.fill('');
+    test('EDGE 05 - Apenas maiúsculas', async ({ page }) => {
+
+        await abrirModal(page);
+        await preencherCurso(page, 'CURSO EDGE TESTE');
+
+        await page.getByRole('button', {
+            name: 'Salvar'
+        }).click();
+    });
+
+    // =====================================================
+    // EDGE 06 - Pesquisa parcial
+    // =====================================================
+
+    test('EDGE 06 - Pesquisa parcial', async ({ page }) => {
+
+        const search = page.getByRole('textbox', {
+            name: /Pesquisar/i
+        });
+
+        await search.fill('cur');
+        await search.press('Enter');
+
+        await expect(
+            page.getByRole('table')
+        ).toBeVisible({
+            timeout: 10000
+        });
+    });
+
+    // =====================================================
+    // EDGE 07 - Pesquisa com acento
+    // =====================================================
+
+    test('EDGE 07 - Pesquisa com acento', async ({ page }) => {
+
+        const search = page.getByRole('textbox', {
+            name: /Pesquisar/i
+        });
+
+        await search.fill('líng');
+        await search.press('Enter');
+
+        await expect(
+            page.getByRole('table')
+        ).toBeVisible({
+            timeout: 10000
+        });
+    });
+
+    // =====================================================
+    // EDGE 08 - Limpar pesquisa
+    // =====================================================
+
+    test('EDGE 08 - Limpar pesquisa', async ({ page }) => {
+
+        const search = page.getByRole('textbox', {
+            name: /Pesquisar/i
+        });
+
+        await search.fill('');
+        await search.press('Enter');
+
+        await expect(
+            page.getByRole('table')
+        ).toBeVisible({
+            timeout: 10000
+        });
+    });
+
 });
