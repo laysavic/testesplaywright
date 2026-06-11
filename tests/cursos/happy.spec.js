@@ -23,22 +23,32 @@ test('CRUD de cursos', async ({ page }) => {
         name: 'Entrar'
     }).click();
 
-    // ===== OTP (gerado no momento certo) =====
-    await page.getByRole('textbox', {
-        name: /Código de verificação/i
-    }).waitFor();
+    await page.waitForURL(/2fa-codigo/);
 
     const otp = authenticator.generate(secret);
+    const timeRemaining = authenticator.timeRemaining();
 
-    await page.getByRole('textbox', {
-        name: /Código de verificação/i
-    }).fill(otp);
+    if (timeRemaining <= 5) {
+        await page.waitForTimeout((timeRemaining + 1) * 1000);
+
+        const freshOtp = authenticator.generate(secret);
+
+        await page.getByRole('textbox', {
+            name: /Código de verificação/i
+        }).fill(freshOtp);
+    } else {
+        await page.getByRole('textbox', {
+            name: /Código de verificação/i
+        }).fill(otp);
+    }
 
     await page.getByRole('button', {
         name: /Verificar código/i
     }).click();
 
-    await expect(page).toHaveURL(/dashboard/);
+    await expect(page).toHaveURL(/dashboard/, {
+        timeout: 15000
+    });
 
     // =====================================================
     // DADOS
@@ -58,6 +68,8 @@ test('CRUD de cursos', async ({ page }) => {
     await page.getByRole('link', {
         name: 'Cursos'
     }).click();
+
+    await page.waitForLoadState('networkidle');
 
     // =====================================================
     // CREATE
@@ -83,9 +95,22 @@ test('CRUD de cursos', async ({ page }) => {
         name: 'Salvar'
     }).click();
 
+    // Confirma salvamento
+    await expect(
+        page.getByText(/Curso salvo com sucesso/i)
+    ).toBeVisible({
+        timeout: 10000
+    });
+
     // =====================================================
     // READ
     // =====================================================
+
+    await expect(
+        page.getByText('Atualizando')
+    ).not.toBeVisible({
+        timeout: 15000
+    });
 
     await page.getByRole('textbox', {
         name: /Pesquisar/i
@@ -93,7 +118,9 @@ test('CRUD de cursos', async ({ page }) => {
 
     await expect(
         page.getByText(nomeCurso)
-    ).toBeVisible();
+    ).toBeVisible({
+        timeout: 10000
+    });
 
     // =====================================================
     // UPDATE
@@ -103,6 +130,12 @@ test('CRUD de cursos', async ({ page }) => {
         name: 'Editar'
     }).first().click();
 
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('textbox', {
+        name: 'Nome do Curso: *'
+    }).clear();
+
     await page.getByRole('textbox', {
         name: 'Nome do Curso: *'
     }).fill(nomeEditado);
@@ -111,9 +144,25 @@ test('CRUD de cursos', async ({ page }) => {
         name: 'Salvar'
     }).click();
 
+    await expect(
+        page.getByText(/Curso salvo com sucesso/i)
+    ).toBeVisible({
+        timeout: 10000
+    });
+
     // =====================================================
     // READ APÓS UPDATE
     // =====================================================
+
+    await expect(
+        page.getByText('Atualizando')
+    ).not.toBeVisible({
+        timeout: 15000
+    });
+
+    await page.getByRole('textbox', {
+        name: /Pesquisar/i
+    }).clear();
 
     await page.getByRole('textbox', {
         name: /Pesquisar/i
@@ -121,7 +170,9 @@ test('CRUD de cursos', async ({ page }) => {
 
     await expect(
         page.getByText(nomeEditado)
-    ).toBeVisible();
+    ).toBeVisible({
+        timeout: 10000
+    });
 
     // =====================================================
     // DELETE
@@ -131,8 +182,22 @@ test('CRUD de cursos', async ({ page }) => {
         name: 'Excluir'
     }).first().click();
 
+    await expect(
+        page.getByRole('button', {
+            name: /^Excluir$/
+        }).last()
+    ).toBeVisible({
+        timeout: 10000
+    });
+
     await page.getByRole('button', {
         name: /^Excluir$/
     }).last().click();
+
+    await expect(
+        page.getByText(/Curso excluído com sucesso/i)
+    ).toBeVisible({
+        timeout: 10000
+    });
 
 });
