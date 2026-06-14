@@ -3,7 +3,7 @@ import { authenticator } from 'otplib';
 
 test('Login com automação TOTP', async ({ page }) => {
 
-    const secret = '2DINPFKXGBLME2VO';
+    const secret = 'HXEVA6OMYITVPBS2';
         const otp = authenticator.generate(secret);
 
         await page.goto('https://app.avaliei.com.br/login');
