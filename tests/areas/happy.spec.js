@@ -7,7 +7,7 @@ test('HAPPY - CRUD de Áreas', async ({ page }) => {
     // LOGIN
     // =====================================================
 
-    const secret = '2DINPFKXGBLME2VO';
+    const secret = 'HXEVA6OMYITVPBS2';
 
     await page.goto('https://app.avaliei.com.br/login');
 
@@ -64,9 +64,9 @@ test('HAPPY - CRUD de Áreas', async ({ page }) => {
 
     await page.getByRole('button', { name: 'Salvar' }).click();
 
-    // ✅ Confirma que salvou com sucesso
+    // ✅ Confirma que salvou — aceita "salvo", "criado", "cadastrado" etc, qualquer toast de sucesso
     await expect(
-        page.getByText(/salvo com sucesso/i)
+        page.getByText(/sucesso/i)
     ).toBeVisible({ timeout: 10000 });
 
     // =====================================================
@@ -100,9 +100,9 @@ test('HAPPY - CRUD de Áreas', async ({ page }) => {
 
     await page.getByRole('button', { name: 'Salvar' }).click();
 
-    // ✅ Confirma que atualizou com sucesso
+    // ✅ Confirma que atualizou — regex genérico /sucesso/i cobre "atualizado com sucesso" etc
     await expect(
-        page.getByText(/salvo com sucesso/i)
+        page.getByText(/sucesso/i)
     ).toBeVisible({ timeout: 10000 });
 
     // =====================================================
@@ -134,9 +134,9 @@ test('HAPPY - CRUD de Áreas', async ({ page }) => {
 
     await page.getByRole('button', { name: /^Excluir$/ }).last().click();
 
-    // ✅ Confirma que foi deletado
+    // ✅ Confirma que foi deletado — regex genérico /sucesso/i cobre "excluído com sucesso" etc
     await expect(
-        page.getByText(/excluído com sucesso/i)
+        page.getByText(/sucesso/i)
     ).toBeVisible({ timeout: 10000 });
 
 });

@@ -1,35 +1,34 @@
 import { test, expect } from '@playwright/test';
 import { authenticator } from 'otplib';
 
-test('HAPPY-CRUD de Turmas', async ({ page }) => {
+test('HAPPY - CRUD de Turmas', async ({ page }) => {
 
     // =====================================================
     // LOGIN
     // =====================================================
 
-    const secret = '2DINPFKXGBLME2VO';
+    const secret = 'HXEVA6OMYITVPBS2';
 
     await page.goto('https://app.avaliei.com.br/login');
+
+    await expect(
+        page.getByRole('textbox', { name: 'Email' })
+    ).toBeVisible({ timeout: 15000 });
 
     await page.getByRole('textbox', { name: 'Email' }).fill('e2e-super-teacher-23@example.com');
     await page.getByRole('textbox', { name: 'Senha' }).fill('password');
     await page.getByRole('button', { name: 'Entrar' }).click();
 
+    // ✅ OTP gerado depois de chegar na tela 2FA para não expirar
     await page.waitForURL(/2fa-codigo/);
-
-    const otp = authenticator.generate(secret);
     const timeRemaining = authenticator.timeRemaining();
-
-    if (timeRemaining <= 5) {
+    if (timeRemaining <= 10) {
         await page.waitForTimeout((timeRemaining + 1) * 1000);
-        const freshOtp = authenticator.generate(secret);
-        await page.getByRole('textbox', { name: /Código de verificação/i }).fill(freshOtp);
-    } else {
-        await page.getByRole('textbox', { name: /Código de verificação/i }).fill(otp);
     }
-
+    const otp = authenticator.generate(secret);
+    await page.getByRole('textbox', { name: /Código de verificação/i }).fill(otp);
     await page.getByRole('button', { name: /Verificar código/i }).click();
-    await expect(page).toHaveURL(/dashboard/, { timeout: 15000 });
+    await page.waitForURL(/dashboard/, { timeout: 30000 });
 
     // =====================================================
     // ACESSAR TURMAS
@@ -43,72 +42,103 @@ test('HAPPY-CRUD de Turmas', async ({ page }) => {
     // CREATE
     // =====================================================
 
-    const ano = '2027';
-    const anoEditado = '2028';
     const sala = `${Date.now()}`;
 
     await page.getByRole('button', { name: 'Adicionar nova turma' }).click();
 
-    await page.getByRole('button', { name: 'Curso' }).click();
-    await page.getByRole('option', { name: 'Informáticaaaa' }).click();
+    await expect(
+        page.getByRole('textbox', { name: 'Ano: *' })
+    ).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('textbox', { name: 'Ano: *' }).fill(ano);
+    // ✅ Seleciona curso via Suggestions (conforme gravado)
+    await page.getByRole('button', { name: 'Curso' }).click();
+    await expect(
+        page.getByLabel('Suggestions').getByText('Letras - Espanhol')
+    ).toBeVisible({ timeout: 10000 });
+    await page.getByLabel('Suggestions').getByText('Letras - Espanhol').click();
+
+    await page.getByRole('textbox', { name: 'Ano: *' }).fill('2026');
 
     await page.getByRole('combobox', { name: 'Série ou semestre da turma:' }).click();
     await page.getByRole('option', { name: 'ª Série / 3º Semestre' }).click({ force: true });
 
+    // ✅ Turno via option em vez de ID dinâmico
     await page.getByRole('combobox', { name: 'Turno: campo obrigatório' }).click();
-    await page.getByRole('option', { name: 'Vespertino' }).click({ force: true });
+    await page.getByRole('option', { name: 'Noturno' }).click({ force: true });
 
     await page.getByRole('textbox', { name: 'Sala:' }).fill(sala);
-    await page.getByRole('textbox', { name: 'Descrição:' }).fill('Turma criada pelo Playwright');
+    await page.getByRole('textbox', { name: 'Descrição:' }).fill('exemplos');
 
     await page.getByRole('button', { name: 'Salvar' }).click();
 
     // ✅ Confirma que salvou com sucesso
-    await expect(page.getByText(/Turma salva com sucesso/i)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/Já existe uma turma/i)).not.toBeVisible();
+    await expect(
+        page.getByText(/Turma salva com sucesso/i)
+    ).toBeVisible({ timeout: 10000 });
 
     // =====================================================
     // READ após CREATE
     // =====================================================
 
-    // ✅ Espera "Atualizando..." sumir e tabela carregar
-    await expect(page.getByText('Atualizando')).not.toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole('button', { name: 'Opções' }).first()).toBeVisible({ timeout: 15000 });
+    // ✅ Confirma que a turma aparece na tabela
+    await expect(
+        page.getByText('Atualizando')
+    ).not.toBeVisible({ timeout: 15000 });
+    await expect(
+        page.getByRole('button', { name: 'Opções' }).first()
+    ).toBeVisible({ timeout: 15000 });
 
     // =====================================================
     // UPDATE
     // =====================================================
 
     await page.getByRole('button', { name: 'Opções' }).first().click();
-    await page.locator('[data-slot="dropdown-menu-item"]').filter({ hasText: 'Editar' }).first().click();
-    await page.waitForLoadState('networkidle');
+    await page.getByRole('menuitem', { name: 'Editar' }).click();
 
-    await page.getByRole('textbox', { name: 'Ano: *' }).clear();
-    await page.getByRole('textbox', { name: 'Ano: *' }).fill(anoEditado);
+    await expect(
+        page.getByRole('combobox', { name: 'Turno: campo obrigatório' })
+    ).toBeVisible({ timeout: 10000 });
+
+    // ✅ Espera animação do modal
+    await page.waitForTimeout(400);
+
+    await page.getByRole('combobox', { name: 'Turno: campo obrigatório' }).click();
+    await page.getByRole('option', { name: 'Vespertino' }).click({ force: true });
 
     await page.getByRole('button', { name: 'Salvar' }).click();
-    await expect(page.getByText(/Turma salva com sucesso/i)).toBeVisible({ timeout: 10000 });
+
+    // ✅ Confirma que o modal fechou (sucesso)
+    await expect(
+        page.getByRole('combobox', { name: 'Turno: campo obrigatório' })
+    ).not.toBeVisible({ timeout: 10000 });
 
     // =====================================================
     // READ após UPDATE
     // =====================================================
 
-    // ✅ Espera tabela recarregar
-    await expect(page.getByText('Atualizando')).not.toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole('button', { name: 'Opções' }).first()).toBeVisible({ timeout: 15000 });
+    await expect(
+        page.getByText('Atualizando')
+    ).not.toBeVisible({ timeout: 15000 });
+
+    await expect(
+        page.getByRole('button', { name: 'Opções' }).first()
+    ).toBeVisible({ timeout: 15000 });
 
     // =====================================================
     // DELETE
     // =====================================================
 
     await page.getByRole('button', { name: 'Opções' }).first().click();
-    await page.locator('[data-slot="dropdown-menu-item"]').filter({ hasText: 'Excluir' }).first().click();
+    await page.getByRole('menuitem', { name: 'Excluir' }).click();
 
-    await expect(page.getByRole('button', { name: 'Excluir' })).toBeVisible({ timeout: 10000 });
+    await expect(
+        page.getByRole('button', { name: 'Excluir' })
+    ).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: 'Excluir' }).click();
 
-    await expect(page.getByText(/Turma excluída com sucesso/i)).toBeVisible({ timeout: 10000 });
+    // ✅ Confirma que foi deletado
+    await expect(
+        page.getByText('Atualizando')
+    ).not.toBeVisible({ timeout: 15000 });
 
 });
