@@ -6,7 +6,7 @@ import { authenticator } from 'otplib';
 // =====================================================
 
 async function login(page) {
-    const secret = '2DINPFKXGBLME2VO';
+    const secret = 'HXEVA6OMYITVPBS2';
 
     await page.goto('https://app.avaliei.com.br/login');
 
